@@ -4,8 +4,8 @@ from tick.plot import plot_point_process
 from tick.hawkes import HawkesSumExpKern
 import matplotlib.pyplot as plt
 
-def timestampsFromWord(word):
-  with open("words/" + word + ".csv") as rf:
+def timestampsFromWord(word, subreddit):
+  with open(subreddit + "_words/" + word + '_in_' + subreddit + ".csv") as rf:
     timestamps = []
     comments = rf.readlines()
     for line in comments:
@@ -18,7 +18,7 @@ def timestampsFromWord(word):
 def normalizeTimestamps(timestamps):
   shrunk_timestamps = []
   for timestamp in timestamps:
-    shrunk_timestamps.append(np.float64(timestamp) / 10 ** 8)
+    shrunk_timestamps.append(np.float64(timestamp) / 864000)
   normal_timestamps = []
   start_time = min(shrunk_timestamps)
   for timestamp in shrunk_timestamps:
@@ -55,7 +55,72 @@ def normalizeTimestamps(timestamps):
 # else:
 #   latestTimeStamp = coronaMinMax[1]
 
+def plotHawkesForSubreddit(words, subreddit):
+  all_timestamps = []
 
+  for word in words:
+    timestamp = timestampsFromWord(word, subreddit)
+    all_timestamps.append(timestamp)
+
+  ### TLDR: word[x] => all_timestamps[x]
+
+  x = 0
+  row = 0
+  column = 0
+  fig_1, ax_list_1 = plt.subplots(nrows=2, ncols=2)
+  fig_2, ax_list_2 = plt.subplots(nrows=2, ncols=2)
+  fig_3, ax_list_3 = plt.subplots(nrows=2, ncols=2)
+  fig_list = [fig_1, fig_2, fig_3]
+  ax_multi_array = [ax_list_1, ax_list_2, ax_list_3]
+  for timestamps in all_timestamps:
+    if column > 1:
+      column = 0
+      row+=1
+    if row > 1:
+      row = 0
+    print("Calculating Hawkes for " + words[x])
+    timestamps = normalizeTimestamps(timestamps)
+    # print(timestamps)
+    decays = [0.8, 0.8]
+    learner = HawkesSumExpKern(decays)
+
+    learner.fit([np.array(timestamps)])
+    if (x < 4):
+      learner.plot_estimated_intensity([np.array(timestamps)], n_points=len(timestamps), ax=ax_list_1[row][column])
+    elif (x < 8):
+      learner.plot_estimated_intensity([np.array(timestamps)], n_points=len(timestamps), ax=ax_list_2[row][column])
+    else:
+      learner.plot_estimated_intensity([np.array(timestamps)], n_points=len(timestamps), ax=ax_list_3[row][column])
+
+    learner = words[x]
+    x+=1
+    column+=1
+  for fig in fig_list:
+    fig.suptitle('r/' + subreddit)
+  x = 0
+  for axes_array in ax_multi_array:
+    for rows in axes_array:
+      for ax in rows:
+        ax.set_title(words[x])
+        ax.set_xlabel('')
+        x+=1
+
+  # deprecated by adding the for loop above
+  # to prevent unnecessary repetition
+  #
+  # for rows in ax_list_2:
+  #   for ax in rows:
+  #     ax.set_title(words[x])
+  #     ax.set_xlabel('')
+  #     x+=1
+
+  # for rows in ax_list_3:
+  #   for ax in rows:
+  #     ax.set_title(words[x])
+  #     ax.set_xlabel('')
+  #     x+=1
+
+  plt.show()
 
 words = ['covid',
          'vaccine',
@@ -69,61 +134,11 @@ words = ['covid',
          'years',
          'mask',
          'public']
-all_timestamps = []
 
-for word in words:
-  timestamp = timestampsFromWord(word)
-  all_timestamps.append(timestamp)
+subreddits = ['coronavirus',
+              'conspiracy',
+              'askReddit']
 
-### TLDR: word[x] => all_timestamps[x]
-
-x = 0
-row = 0
-column = 0
-fig_1, ax_list_1 = plt.subplots(nrows=2, ncols=2)
-fig_2, ax_list_2 = plt.subplots(nrows=2, ncols=2)
-fig_3, ax_list_3 = plt.subplots(nrows=2, ncols=2)
-for timestamps in all_timestamps:
-  if column > 1:
-    column = 0
-    row+=1
-  if row > 1:
-    row = 0
-  print("Calculating Hawkes for " + words[x])
-  timestamps = normalizeTimestamps(timestamps)
-  # print(timestamps)
-  decays = [0.8, 0.8]
-  learner = HawkesSumExpKern(decays)
-
-  learner.fit([np.array(timestamps)])
-  if (x < 4):
-    learner.plot_estimated_intensity([np.array(timestamps)], n_points=len(timestamps), ax=ax_list_1[row][column])
-  elif (x < 8):
-    learner.plot_estimated_intensity([np.array(timestamps)], n_points=len(timestamps), ax=ax_list_2[row][column])
-  else:
-    learner.plot_estimated_intensity([np.array(timestamps)], n_points=len(timestamps), ax=ax_list_3[row][column])
-
-  learner = words[x]
-  x+=1
-  column+=1
-
-x = 0
-for rows in ax_list_1:
-  for ax in rows:
-    ax.set_title(words[x])
-    ax.set_xlabel('')
-    x+=1
-
-for rows in ax_list_2:
-  for ax in rows:
-    ax.set_title(words[x])
-    ax.set_xlabel('')
-    x+=1
-
-for rows in ax_list_3:
-  for ax in rows:
-    ax.set_title(words[x])
-    ax.set_xlabel('')
-    x+=1
-
-plt.show()
+for subreddit in subreddits:
+  print("Getting graphs from " + subreddit)
+  plotHawkesForSubreddit(words, subreddit)
